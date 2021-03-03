@@ -1,7 +1,7 @@
 # GUI.py
 import pygame
-import time
-pygame.font.init()
+import sys
+from customs import Text, Button, ImageButton, InputBox
 
 
 class Grid():
@@ -368,7 +368,87 @@ def main():
         redraw_window(win, board, play_time, strikes)
         pygame.display.update()
 
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (244, 0, 38)
+GREEN = (74, 145, 35)
+BLUE = (45, 77, 109)
+YELLOW = (242, 209, 17)
+ORANGE = (242, 118, 9)
+
+pygame.font.init()
+pygame.init()
+clock = pygame.time.Clock()
+
+class App():
+    """
+    DOCSTRING:
+
+    """
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+
+        self.screen = pygame.display.set_mode((width, height))
+        icon = pygame.image.load("images/logo.png")
+        pygame.display.set_icon(icon)
+        pygame.display.set_caption('Sudoku')
+
+    def main_menu(self):
+        click = False
+        
+        while True:
+            pygame.display.set_caption('Sudoku (Main Menu)')
+
+            self.screen.fill(BLACK)
+            bg = pygame.image.load("images/background.jpg")
+            bg = pygame.transform.scale(bg, (self.width, self.height))
+            self.screen.blit(bg, (0, 0))
+
+            Text(self.screen, 'SUDOKU', (self.width/2, 40), BLACK, text_size=64, center=True)
+
+            play = Button(self.screen, 'PLAY', (self.width/2 - 130, 100), (260, 30), WHITE, text_color=BLACK, border=2, border_color=BLACK)
+            new_level = Button(self.screen, 'NEW LEVEL', (self.width/2 - 130, 140), (260, 30), WHITE, text_color=BLACK, border=2, border_color=BLACK)
+            exit = Button(self.screen, 'EXIT', (self.width/2 - 130, self.height-60), (260, 30), WHITE, text_color=BLACK, border=2, border_color=BLACK)
+            play.draw()
+            new_level.draw()
+            exit.draw()
+
+            mx, my = pygame.mouse.get_pos()
+            if click:
+                if play.rect.collidepoint((mx, my)):
+                    self.game_screen()
+                if new_level.rect.collidepoint((mx, my)):
+                    self.add_level()
+                if exit.rect.collidepoint((mx, my)):
+                    pygame.quit()
+                    sys.exit()
+
+            click = False
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        sys.exit()
+
+                if event.type == pygame.MOUSEBUTTONUP:
+                    if event.button == 1:
+                        click = True
+
+            pygame.display.update()
+            clock.tick(60)
+
+    def game_screen(self):
+        pass
+
+    def add_level(self):
+        pass
+
 
 if __name__ == '__main__':
-    main()
-    pygame.quit()
+    app = App(450, 450)
+    app.main_menu() 
