@@ -45,9 +45,6 @@ class Grid():
                 self.update_model()
                 return False
 
-    def sketch(self, value):
-        row, col = self.selected
-        self.cubes[row][col].set_temp(value)
 
     def draw(self):
         # Draw Grid Lines
@@ -73,29 +70,6 @@ class Grid():
 
         self.cubes[row][col].selected = True
         self.selected = (row, col)
-
-    def clear(self):
-        row, col = self.selected
-        if self.cubes[row][col].value == 0:
-            self.cubes[row][col].set_temp(0)
-
-    def click(self, pos):
-        :param: pos
-        :return: (row, col)
-        if pos[0] < self.width and pos[1] < self.height:
-            gap = self.width / 9
-            x = pos[0] // gap
-            y = pos[1] // gap
-            return (int(y),int(x))
-        else:
-            return None
-
-    def is_finished(self):
-        for i in range(self.rows):
-            for j in range(self.cols):
-                if self.cubes[i][j].value == 0:
-                    return False
-        return True
 
     def solve(self):
         empty = find_empty(self.model)
@@ -144,52 +118,6 @@ class Grid():
 
         return False
 
-
-
-
-def find_empty(board):
-    for i in range(len(board)):
-        for j in range(len(board[0])):
-            if board[i][j] == 0:
-                return (i, j)  # row, col
-
-    return None
-
-
-def valid(board, number, pos):
-    # Check row
-    for i in range(len(board[0])):
-        if board[pos[0]][i] == number and pos[1] != i:
-            return False
-
-    # Check column
-    for i in range(len(board)):
-        if board[i][pos[1]] == number and pos[0] != i:
-            return False
-
-    # Check box
-    box_x = pos[1] // 3
-    box_y = pos[0] // 3
-
-    for i in range(box_y*3, box_y*3 + 3):
-        for j in range(box_x * 3, box_x*3 + 3):
-            if board[i][j] == number and (i,j) != pos:
-                return False
-
-    return True
-
-
-def redraw_window(win, board, time, strikes):
-    win.fill((255,255,255))
-    # Draw time
-    fnt = pygame.font.SysFont("comicsans", 40)
-    text = fnt.render("Time: " + format_time(time), 1, (0,0,0))
-    win.blit(text, (540 - 160, 560))
-    # Draw Strikes
-    text = fnt.render("X " * strikes, 1, (255, 0, 0))
-    win.blit(text, (20, 560))
-    # Draw grid and board
-    board.draw()
 
 def main():
     win = pygame.display.set_mode((540,600))
@@ -246,6 +174,9 @@ BLUE = (45, 77, 109)
 YELLOW = (242, 209, 17)
 ORANGE = (242, 118, 9)
 
+ROWS = 9
+COLS = 9
+
 pygame.font.init()
 pygame.init()
 clock = pygame.time.Clock()
@@ -260,12 +191,17 @@ class Cube():
         self.pos = pos
         self.gap = gap
         self.selected = False
+        self.changeable = True
 
     def draw(self):
         x, y = self.pos
 
         if self.value != 0:
-            Text(self.screen, str(self.value), (x + self.gap/2, y + self.gap/2), GREY, center=True)
+            if self.changeable:
+                Text(self.screen, str(self.value), (x + self.gap/2, y + self.gap/2), GREEN, center=True)
+            else:
+                Text(self.screen, str(self.value), (x + self.gap/2, y + self.gap/2), GREY, center=True)
+
         elif self.temp != '':
             Text(self.screen, str(self.temp), (x + 8, y + 8), GREY, text_size=14)
 
@@ -294,43 +230,102 @@ class Grid():
     DOCSTRING:
 
     """
-    def __init__(self, screen, size, pos, grid_size=(9,9)):
+    def __init__(self, screen, size, pos):
         super(Grid, self).__init__()
         self.screen = screen
         self.size = size
         self.pos = pos
-        self.grid_size = grid_size
 
         # Unpack values
         width, height = size
         x, y = pos
-        rows, cols = grid_size
         gap = width / 9
 
         # Create grid
-        self.grid = []
-        for i in range(rows):
-            self.grid.append([])
-            for j in range(cols):
-                cube_x = x + i*gap
-                cube_y = y + j*gap
-                cube = Cube(self.screen, 0, i, j, (cube_x, cube_y), gap)
-                self.grid[i].append(cube)
+        self.grid = [[Cube(self.screen, 0, i, j, (x + i*gap, y + j*gap), gap) for j in range(COLS)] for i in range(ROWS)]
 
     def clear(self):
         for row in self.grid:
             for cube in row:
                 cube.value = 0
+                cube.changeable = True
+
+    def is_finished(self):
+        for row in self.grid:
+            for cube in row:
+                if cube.value == 0:
+                    return False
+        return True
+
+    def find_empty(self):
+        for i in range(ROWS):
+            for j in range(COLS):
+                if self.grid[i][j].value == 0:
+                    return i, j
+        return None
+
+    def valid(self, number, pos):
+        pos_x, pos_y = pos
+        # Check row
+        for i in range(len(self.grid)):
+            if self.grid[i][pos_y].value == number and pos_x != i:
+                return False
+
+        # Check column
+        for i in range(len(self.grid[0])):
+            if self.grid[pos_x][i].value == number and pos_y != i:
+                return False
+
+        # Check box
+        box_x = pos_y // 3
+        box_y = pos_x // 3
+
+        for i in range(box_y*3, box_y*3 + 3):
+            for j in range(box_x * 3, box_x*3 + 3):
+                if self.grid[i][j].value == number and (i,j) != pos:
+                    return False
+        return True
+
+    def solve(self):
+        empty = self.find_empty()
+        if not empty:
+            return True
+        else:
+            row, col = empty
+
+        for number in range(1, 10):
+            if self.valid(number, (row, col)):
+                self.grid[row][col].value = number
+
+                if self.solve():
+                    return True
+
+                self.grid[row][col].value = 0
+
+        return False
+
+    def use_number(self, selected_cube, number, finish_grid, mistakes):
+        i, j = selected_cube
+        cube = self.grid[i][j]
+        cube.selected = False
+
+        if cube.changeable:
+            if finish_grid[i][j] == number:
+                cube.value = number
+                cube.temp = ''
+            else:
+                cube.temp = ''
+                mistakes += 1
+        return mistakes
 
     def draw(self):
         # Unpack values
         width, height = self.size
         x, y = self.pos
-        rows, cols = self.grid_size
         gap = width / 9
 
         # Draw Grid Lines
-        for i in range(rows + 1):
+        for i in range(ROWS + 1):
             if i == 0 or i == 3 or i == 6 or i == 9:
                 thick = 3
             else:
@@ -343,19 +338,6 @@ class Grid():
         for row in self.grid:
             for cube in row:
                 cube.draw()
-
-    def use_number(self, selected_cube, number, finish_grid, mistakes):
-        i, j = selected_cube
-        cube = self.grid[i][j]
-        cube.selected = False
-
-        if finish_grid[i][j] == number:
-            cube.value = number
-            cube.temp = ''
-        else:
-            cube.temp = ''
-            mistakes += 1
-        return mistakes
 
 class App():
     """
@@ -441,7 +423,6 @@ class App():
             clock.tick(60)
 
     def game_screen(self, game_id = 0):
-
         if game_id == 0:
             game_id = database.get_random()
 
@@ -459,19 +440,27 @@ class App():
         notes_on = False
         grid_solved = False
 
-        grid = Grid(self.screen, (self.width-140, self.height-140), (70, 30), (9,9))
+        grid = Grid(self.screen, (self.width-140, self.height-140), (70, 30))
         for i, row in enumerate(grid.grid):
             for j, col in enumerate(row):
-                cube = grid.grid[i][j]
-                cube.value = start_grid[i][j]
+                if start_grid[i][j] != 0:
+                    cube = grid.grid[i][j]
+                    cube.value = start_grid[i][j]
+                    cube.changeable = False
 
         notes = Button(self.screen, 'N', (25, 29), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
-
         hint = Button(self.screen, 'H', (25, 65), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
         clear = Button(self.screen, 'C', (25, 101), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
         reset = Button(self.screen, 'R', (25, 137), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
         solve = Button(self.screen, 'S', (25, 173), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
         info = Button(self.screen, '?', (25, 209), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
+
+        y = 29
+        numbers = []
+        for i in range(1, 10):
+            btn = Button(self.screen, str(i), (self.width-52, y), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
+            numbers.append(btn)
+            y += 36
 
         player = InputBox(self.screen, (25, self.height - 100), (140, 30), '', BLACK, GREY)
         exit = Button(self.screen, 'EXIT', (25, self.height - 60), (self.width-50, 30), WHITE, text_color=GREY, border=2, border_color=GREY)
@@ -482,6 +471,10 @@ class App():
 
             if mistakes >= 3:
                 self.game_over()
+                run = False
+
+            if grid.is_finished() and not grid_solved:
+                self.game_finished()
                 run = False
 
             self.screen.fill(BLACK)
@@ -511,13 +504,8 @@ class App():
             solve.draw()
             info.draw()
 
-            y = 29
-            numbers = []
-            for i in range(1, 10):
-                btn = Button(self.screen, str(i), (self.width-52, y), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
+            for btn in numbers:
                 btn.draw()
-                numbers.append(btn)
-                y += 36
 
             if show_grid:
                 grid.draw()
@@ -582,6 +570,7 @@ class App():
                     for i, row in enumerate(grid.grid):
                         for j, col in enumerate(row):
                             grid.grid[i][j].value = start_grid[i][j]
+                            cube.changeable = False
 
                     time_started = datetime.now()
                     mistakes = 0
@@ -691,6 +680,40 @@ class App():
             clock.tick(60)
 
 
+    def game_finished(self):
+        click = False
+        run = True
+        while run:
+            mx, my = pygame.mouse.get_pos()
+            pygame.display.set_caption('Sudoku (Game Over)')
+
+            self.screen.fill(BLACK)
+            bg = pygame.image.load("images/background.jpg")
+            bg = pygame.transform.scale(bg, (self.width, self.height))
+            self.screen.blit(bg, (0, 0))
+
+            Text(self.screen, 'GAME FINISHED', (self.width/2, 40), GREY, text_size=64, center=True)
+
+            if click:
+                pass
+
+            click = False
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        run = False
+                if event.type == pygame.MOUSEBUTTONUP:
+                    if event.button == 1:
+                        click = True
+
+            pygame.display.update()
+            clock.tick(60)
+
+
     def add_level(self):
         run = True
         click = False
@@ -700,7 +723,7 @@ class App():
         start_pos_grid = []
         finish_pos_grid = []
 
-        grid = Grid(self.screen, (self.width-140, self.height-140), (70, 30), (9,9))
+        grid = Grid(self.screen, (self.width-140, self.height-140), (70, 30))
         
         start_pos = Button(self.screen, 'S', (25, 30), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
         finish_pos = Button(self.screen, 'F', (25, 65), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
@@ -758,7 +781,7 @@ class App():
 
             else:
                 Text(self.screen, 'Starting grid', (60, 42), GREY, text_size=22)
-                Text(self.screen, 'Finishing grid', (60, 77), GREY, text_size=22)
+                Text(self.screen, 'Create finishing grid', (60, 77), GREY, text_size=22)
                 Text(self.screen, 'Delete selected', (60, 112), GREY, text_size=22)
                 Text(self.screen, 'Clear grid', (60, 147), GREY, text_size=22)
                 Text(self.screen, 'Hide / show more information', (60, 182), GREY, text_size=22)
@@ -775,16 +798,22 @@ class App():
                         start_pos_grid.append([])
                         for j, cube in enumerate(row):
                             start_pos_grid[i].append(cube.value)
-                    print(start_pos_grid)
 
                 if finish_pos.rect.collidepoint((mx, my)):
                     finish_pos_grid = []
                     selected_cube = (-1, -1)
                     cant_save = False
+
+                    for i, row in enumerate(grid.grid):
+                        start_pos_grid.append([])
+                        for j, cube in enumerate(row):
+                            if cube.value != 0:
+                                cube.changeable = False
+
+                    grid.solve()
                     for i, row in enumerate(grid.grid):
                         finish_pos_grid.append([])
                         for j, cube in enumerate(row):
-
                             if cube.value == 0:
                                 cant_save = True
                             else:
@@ -832,6 +861,7 @@ class App():
                     else:
                         if database.new_grid(creator.text, start_pos_grid, finish_pos_grid):
                             grid.clear()
+                            creator.clear()
                         else:
                             Text(self.screen, 'Can not save new level in database.', (self.width / 2, self.height - 15), GREY, center=True)
                             pygame.display.update()
@@ -877,7 +907,7 @@ class App():
                     if selected_cube[0] != -1 and number != 0:
                         i, j = selected_cube
                         cube = grid.grid[i][j]
-                        cube.value = key
+                        cube.value = number
                         cube.selected = False
                         selected_cube = (-1, -1)
 

@@ -24,11 +24,12 @@ try:
 except mysql.connector.errors.InterfaceError: 
 	print('[ - ] Can not connect to database.')
 
-def new_grid(creator, start_pos):
+def new_grid(creator, start_pos, finish_pos):
 	start = json.dumps(start_pos)
+	finish = json.dumps(finish_pos)
 
-	sql = "INSERT INTO levels (creator, start) VALUES (%s, %s)"
-	val = (creator, start, )
+	sql = "INSERT INTO levels (creator, start, finish) VALUES (%s, %s, %s)"
+	val = (creator, start, finish, )
 
 	mycursor.execute(sql, val)
 	mydb.commit()
