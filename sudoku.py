@@ -8,163 +8,15 @@ Created on Tue Feb 16 13:37:30 2021
 """
 #!/usr/bin/env python3
 
-
+# Importing the libraries
+from threading import Thread
 import pygame
 import sys
 from customs import Text, Button, ImageButton, InputBox
 import database
 from datetime import datetime, timedelta
 
-"""
-class Grid():
-    def __init__(self, rows, cols, width, height, win):
-        self.rows = rows
-        self.cols = cols
-        self.cubes = [[Cube(self.board[i][j], i, j, width, height) for j in range(cols)] for i in range(rows)]
-        self.width = width
-        self.height = height
-        self.model = None
-        self.update_model()
-        self.selected = None
-        self.win = win
-
-    def update_model(self):
-        self.model = [[self.cubes[i][j].value for j in range(self.cols)] for i in range(self.rows)]
-
-    def place(self, value):
-        row, col = self.selected
-        if self.cubes[row][col].value == 0:
-            self.cubes[row][col].set(value)
-            self.update_model()
-
-            if valid(self.model, value, (row, col)) and self.solve():
-                return True
-            else:
-                self.cubes[row][col].set(0)
-                self.cubes[row][col].set_temp(0)
-                self.update_model()
-                return False
-
-
-    def draw(self):
-        # Draw Grid Lines
-        gap = self.width / 9
-        for i in range(self.rows + 1):
-            if i % 3 == 0 and i != 0:
-                thick = 4
-            else:
-                thick = 1
-            pygame.draw.line(self.win, (0,0,0), (0, i*gap), (self.width, i*gap), thick)
-            pygame.draw.line(self.win, (0,0,0), (i*gap, 0), (i * gap, self.height), thick)
-
-        # Draw Cubes
-        for i in range(self.rows):
-            for j in range(self.cols):
-                self.cubes[i][j].draw(self.win)
-
-    def select(self, row, col):
-        # Reset all other
-        for i in range(self.rows):
-            for j in range(self.cols):
-                self.cubes[i][j].selected = False
-
-        self.cubes[row][col].selected = True
-        self.selected = (row, col)
-
-    def solve(self):
-        empty = find_empty(self.model)
-        if not empty:
-            return True
-        else:
-            row, col = empty
-
-        for number in range(1, 10):
-            if valid(self.model, number, (row, col)):
-                self.model[row][col] = number
-
-                if self.solve():
-                    return True
-
-                self.model[row][col] = 0
-
-        return False
-
-    def solve_gui(self):
-        self.update_model()
-        empty = find_empty(self.model)
-        if not empty:
-            return True
-        else:
-            row, col = empty
-
-        for number in range(1, 10):
-            if valid(self.model, number, (row, col)):
-                self.model[row][col] = number
-                self.cubes[row][col].set(number)
-                self.cubes[row][col].draw_change(self.win, True)
-                self.update_model()
-                pygame.display.update()
-                pygame.time.delay(50)
-
-                if self.solve_gui():
-                    return True
-
-                self.model[row][col] = 0
-                self.cubes[row][col].set(0)
-                self.update_model()
-                self.cubes[row][col].draw_change(self.win, False)
-                pygame.display.update()
-                pygame.time.delay(50)
-
-        return False
-
-
-def main():
-    win = pygame.display.set_mode((540,600))
-    pygame.display.set_caption("Sudoku")
-    board = Grid(9, 9, 540, 540, win)
-    key = None
-    run = True
-    start = time.time()
-    strikes = 0
-    while run:
-        play_time = round(time.time() - start)
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                run = False
-
-                if event.key == pygame.K_SPACE:
-                    board.solve_gui()
-
-                if event.key == pygame.K_RETURN:
-                    i, j = board.selected
-                    if board.cubes[i][j].temp != 0:
-                        if board.place(board.cubes[i][j].temp):
-                            print("Success")
-                        else:
-                            print("Wrong")
-                            strikes += 1
-                        key = None
-
-                        if board.is_finished():
-                            print("Game over")
-
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                pos = pygame.mouse.get_pos()
-                clicked = board.click(pos)
-                if clicked:
-                    board.select(clicked[0], clicked[1])
-                    key = None
-
-        if board.selected and key != None:
-            board.sketch(key)
-
-        redraw_window(win, board, play_time, strikes)
-        pygame.display.update()
-
-"""
-
+# Defining constants
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GREY = (74, 74, 74)
@@ -177,6 +29,7 @@ ORANGE = (242, 118, 9)
 ROWS = 9
 COLS = 9
 
+# Pygame initilaization
 pygame.font.init()
 pygame.init()
 clock = pygame.time.Clock()
@@ -206,6 +59,17 @@ class Cube():
             Text(self.screen, str(self.temp), (x + 8, y + 8), GREY, text_size=14)
 
         if self.selected:
+            pygame.draw.rect(self.screen, RED, (x, y, self.gap, self.gap), 3)
+
+    def draw_change(self, green):
+        x, y = self.pos
+
+        pygame.draw.rect(self.screen, WHITE, (x, y, self.gap, self.gap), 0)
+        Text(self.screen, str(self.value), (x + self.gap/2, y + self.gap/2), GREEN, center=True)
+
+        if green:
+            pygame.draw.rect(self.screen, GREEN, (x, y, self.gap, self.gap), 3)
+        else:
             pygame.draw.rect(self.screen, RED, (x, y, self.gap, self.gap), 3)
 
     def add_temp(self, value):
@@ -301,8 +165,35 @@ class Grid():
                     return True
 
                 self.grid[row][col].value = 0
-
         return False
+
+    def solve_gui_thread(self):
+        solved = False
+        while not solved:
+            solved = self.solve_gui()
+            pygame.time.delay(150)
+
+    def solve_gui(self):
+        empty = self.find_empty()
+        if not empty:
+            return True
+        else:
+            row, col = empty
+
+        for number in range(1, 10):
+            if self.valid(number, (row, col)):
+                self.grid[row][col].value = number
+                self.grid[row][col].draw_change(True)
+                pygame.display.update()
+
+                if self.solve_gui():
+                    return True
+
+                self.grid[row][col].value = 0
+                self.grid[row][col].draw_change(False)
+                pygame.display.update()
+
+        return False        
 
     def use_number(self, selected_cube, number, finish_grid, mistakes):
         i, j = selected_cube
@@ -426,7 +317,7 @@ class App():
         if game_id == 0:
             game_id = database.get_random()
 
-        start_grid, finish_grid = database.get_level(game_id)
+        start_grid, finish_grid = database.get_level_grid(game_id)
         if not start_grid: 
             return False
 
@@ -474,7 +365,7 @@ class App():
                 run = False
 
             if grid.is_finished() and not grid_solved:
-                self.game_finished()
+                self.game_finished(game_id, player.text, time_started, datetime.now())
                 run = False
 
             self.screen.fill(BLACK)
@@ -496,6 +387,13 @@ class App():
             else:
                 solve.border = 1
                 solve.border_color = GREY
+
+            if show_grid:
+                info.border = 2
+                info.border_color = GREEN
+            else:
+                info.border = 1
+                info.border_color = GREY
 
             notes.draw()
             hint.draw()
@@ -680,22 +578,43 @@ class App():
             clock.tick(60)
 
 
-    def game_finished(self):
+    def game_finished(self, game_id, name, time_started, time_finished):
         click = False
         run = True
+
+        duration = int((time_finished - time_started).total_seconds())
+        creator, record, recorder = database.get_level(game_id)
+        if duration < record:
+            database.update_record(game_id, duration, name)
+
+        pygame.display.set_caption('Sudoku (Game Finished)')
+        self.screen.fill(BLACK)
+        bg = pygame.image.load("images/background.jpg")
+        bg = pygame.transform.scale(bg, (self.width, self.height))
+        self.screen.blit(bg, (0, 0))
+
+        Text(self.screen, 'GAME FINISHED', (self.width/2, 40), GREY, text_size=72, center=True)
+
+        if duration < record:
+            Text(self.screen, 'New record!', (self.width/2, 80), GREY, text_size=48, center=True)
+            Text(self.screen, f'Record: {timedelta(seconds=duration)}', (self.width/2, 110), GREY, text_size=24, center=True)
+            Text(self.screen, f'Recorder: {name}', (self.width/2, 130), GREY, text_size=24, center=True)
+        else:
+            Text(self.screen, f'Your time: {timedelta(seconds=duration)}', (self.width/2, 70), GREY, text_size=24, center=True)
+            Text(self.screen, f'Name: {name}', (self.width/2, 90), GREY, text_size=24, center=True)
+            Text(self.screen, f'Record: {timedelta(seconds=record)}', (self.width/2, 110), GREY, text_size=24, center=True)
+            Text(self.screen, f'Recorder: {recorder}', (self.width/2, 130), GREY, text_size=24, center=True)
+
+        Text(self.screen, f'Level created by: {creator}', (self.width/2, 150), GREY, text_size=24, center=True)
+        exit = Button(self.screen, 'EXIT', (25, self.height - 60), (self.width-50, 30), WHITE, text_color=GREY, border=2, border_color=GREY)
+        exit.draw()
+
         while run:
             mx, my = pygame.mouse.get_pos()
-            pygame.display.set_caption('Sudoku (Game Over)')
-
-            self.screen.fill(BLACK)
-            bg = pygame.image.load("images/background.jpg")
-            bg = pygame.transform.scale(bg, (self.width, self.height))
-            self.screen.blit(bg, (0, 0))
-
-            Text(self.screen, 'GAME FINISHED', (self.width/2, 40), GREY, text_size=64, center=True)
 
             if click:
-                pass
+                if exit.rect.collidepoint((mx, my)):
+                    run = False
 
             click = False
             for event in pygame.event.get():
@@ -722,14 +641,23 @@ class App():
         selected_cube = (-1, -1)
         start_pos_grid = []
         finish_pos_grid = []
+        solve_with_gui = False
 
         grid = Grid(self.screen, (self.width-140, self.height-140), (70, 30))
         
-        start_pos = Button(self.screen, 'S', (25, 30), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
+        start_pos = Button(self.screen, 'S', (25, 29), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
         finish_pos = Button(self.screen, 'F', (25, 65), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
-        delete = Button(self.screen, 'D', (25, 100), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
-        clear = Button(self.screen, 'C', (25, 135), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
-        info = Button(self.screen, '?', (25, 170), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
+        delete = Button(self.screen, 'D', (25, 101), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
+        clear = Button(self.screen, 'C', (25, 137), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
+        gui = Button(self.screen, 'G', (25, 173), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
+        info = Button(self.screen, '?', (25, 209), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
+
+        y = 29
+        numbers = []
+        for i in range(1, 10):
+            btn = Button(self.screen, str(i), (self.width-52, y), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
+            numbers.append(btn)
+            y += 36
 
         creator = InputBox(self.screen, (70, self.height - 100), (140, 30), '', BLACK, GREY)
         save = Button(self.screen, 'SAVE', (240, self.height - 100), (140, 30), WHITE, text_color=GREY, border=2, border_color=GREY)
@@ -743,25 +671,48 @@ class App():
             bg = pygame.image.load("images/background.jpg")
             bg = pygame.transform.scale(bg, (self.width, self.height))
             self.screen.blit(bg, (0, 0))
-            Text(self.screen, 'LEVEL CREATOR', (self.width/2, 15), GREY, text_size=22, center=True)
+            Text(self.screen, 'LEVEL CREATOR SCREEN', (self.width/2, 15), GREY, text_size=22, center=True)
+
+            if solve_with_gui:
+                gui.border = 2
+                gui.border_color = GREEN
+            else:
+                gui.border = 1
+                gui.border_color = GREY
+
+            if start_pos_grid:
+                start_pos.border = 2
+                start_pos.border_color = GREEN
+            else:
+                start_pos.border = 1
+                start_pos.border_color = GREY
+
+            if finish_pos_grid:
+                finish_pos.border = 2
+                finish_pos.border_color = GREEN
+            else:
+                finish_pos.border = 1
+                finish_pos.border_color = GREY
+
+            if not show_grid:
+                info.border = 2
+                info.border_color = GREEN
+            else:
+                info.border = 1
+                info.border_color = GREY
 
             start_pos.draw()
             finish_pos.draw()
             delete.draw()
             clear.draw()
+            gui.draw()
             info.draw()
 
-            y = 29
-            numbers = []
-            for i in range(1, 10):
-                btn = Button(self.screen, str(i), (self.width-50, y), (25, 25), WHITE, text_color=GREY, border=1, border_color=GREY)
+            for btn in numbers:
                 btn.draw()
-                numbers.append(btn)
-                y += 36
 
             if show_grid:
                 grid.draw()
-
                 if click:
                     if selected_cube[0] != -1:
                         for num, btn in enumerate(numbers):
@@ -780,11 +731,12 @@ class App():
                                 selected_cube = (i, j)
 
             else:
-                Text(self.screen, 'Starting grid', (60, 42), GREY, text_size=22)
+                Text(self.screen, 'Starting grid', (60, 41), GREY, text_size=22)
                 Text(self.screen, 'Create finishing grid', (60, 77), GREY, text_size=22)
-                Text(self.screen, 'Delete selected', (60, 112), GREY, text_size=22)
-                Text(self.screen, 'Clear grid', (60, 147), GREY, text_size=22)
-                Text(self.screen, 'Hide / show more information', (60, 182), GREY, text_size=22)
+                Text(self.screen, 'Delete selected', (60, 113), GREY, text_size=22)
+                Text(self.screen, 'Clear grid', (60, 149), GREY, text_size=22)
+                Text(self.screen, 'Solve with visualization', (60, 185), GREY, text_size=22)
+                Text(self.screen, 'Hide / show more information', (60, 221), GREY, text_size=22)
 
             creator.draw()
             save.draw()
@@ -810,7 +762,13 @@ class App():
                             if cube.value != 0:
                                 cube.changeable = False
 
-                    grid.solve()
+                    if solve_with_gui:
+                        thread = Thread(target = grid.solve_gui_thread)
+                        thread.daemon = True
+                        thread.start()
+                    else:
+                        grid.solve()
+
                     for i, row in enumerate(grid.grid):
                         finish_pos_grid.append([])
                         for j, cube in enumerate(row):
@@ -824,8 +782,6 @@ class App():
                         Text(self.screen, 'Finishing grid can not have zeros.', (self.width / 2, self.height - 15), GREY, center=True)
                         pygame.display.update()
                         pygame.time.delay(1500)
-                    else:
-                        print(finish_pos_grid)
 
                 if delete.rect.collidepoint((mx, my)):
                     if selected_cube[0] != -1:
@@ -833,8 +789,16 @@ class App():
                     selected_cube = (-1, -1)
 
                 if clear.rect.collidepoint((mx, my)): 
+                    finish_pos_grid = []
+                    start_pos_grid = []
                     selected_cube = (-1, -1)
                     grid.clear()
+
+                if gui.rect.collidepoint((mx, my)):
+                    if solve_with_gui:
+                        solve_with_gui = False
+                    else:
+                        solve_with_gui = True
 
                 if info.rect.collidepoint((mx, my)):
                     if show_grid:
@@ -860,6 +824,8 @@ class App():
 
                     else:
                         if database.new_grid(creator.text, start_pos_grid, finish_pos_grid):
+                            finish_pos_grid = []
+                            start_pos_grid = []
                             grid.clear()
                             creator.clear()
                         else:
