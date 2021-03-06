@@ -120,7 +120,6 @@ class InputBox():
         self.txt_surface = font.render(self.text, True, self.color)
         self.draw()
 
-
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN:
             if self.rect.collidepoint(event.pos):
@@ -140,6 +139,7 @@ class InputBox():
                 
                 font = pygame.font.Font(None, 24)
                 self.txt_surface = font.render(self.text, True, self.color)
+
 
     def update(self):
         width = max(self.rect.w, self.txt_surface.get_width()+10)
