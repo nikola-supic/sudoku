@@ -849,26 +849,27 @@ class App():
                         run = False
 
                     number = 0
-                    if event.key == pygame.K_1:
-                        number = 1
-                    if event.key == pygame.K_2:
-                        number = 2
-                    if event.key == pygame.K_3:
-                        number = 3
-                    if event.key == pygame.K_4:
-                        number = 4
-                    if event.key == pygame.K_5:
-                        number = 5
-                    if event.key == pygame.K_6:
-                        number = 6
-                    if event.key == pygame.K_7:
-                        number = 7
-                    if event.key == pygame.K_8:
-                        number = 8
-                    if event.key == pygame.K_9:
-                        number = 9
-                    if event.key == pygame.K_0:
-                        number = 0
+                    match event.key:
+                        case pygame.K_1:
+                            number = 1
+                        case pygame.K_2:
+                            number = 2
+                        case pygame.K_3:
+                            number = 3
+                        case pygame.K_4:
+                            number = 4
+                        case pygame.K_5:
+                            number = 5
+                        case pygame.K_6:
+                            number = 6
+                        case pygame.K_7:
+                            number = 7
+                        case pygame.K_8:
+                            number = 8
+                        case pygame.K_9:
+                            number = 9
+                        case pygame.K_0, _:
+                            number = 0
 
                     if selected_cube[0] != -1 and number != 0:
                         i, j = selected_cube
